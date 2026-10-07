@@ -172,6 +172,20 @@ figcaption { font-size: 0.95rem; color: var(--muted); max-width: 44rem; }
 .saxis .ax { position: relative; height: 1rem; }
 .saxis .ax span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 
+/* Speed table */
+.speedtab { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 0.9rem; }
+.speedtab th, .speedtab td { padding: 0.6rem 0.5rem; text-align: left; vertical-align: top; border-top: 1px solid var(--grid); }
+.speedtab thead th { border-top: 0; border-bottom: 1px solid var(--rule); font-family: var(--font-display); font-weight: 500; }
+.speedtab th:first-child { width: 31%; }
+.speedtab tbody th { font-family: var(--font-display); font-weight: 500; }
+.speedtab tr.ours th, .speedtab tr.ours td { background: var(--accent-soft); }
+.speedtab .v { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.speedtab .v span { font-size: 0.75em; font-weight: 500; color: var(--muted); }
+.speedtab .bar { height: 0.35rem; margin-top: 0.35rem; background: var(--grid); border-radius: 999px; overflow: hidden; }
+.speedtab .bar span { display: block; height: 100%; border-radius: 999px; }
+.speedtab .rg { margin-top: 0.3rem; font-family: var(--font-data); font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+@media (max-width: 34rem) { .speedtab { font-size: 0.82rem; } .speedtab th, .speedtab td { padding: 0.55rem 0.3rem; } .speedtab .v { font-size: 1.1rem; } }
+
 /* Method explorer */
 .tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .tabs button { font: inherit; font-family: var(--font-display); font-weight: 500; border: 1px solid var(--rule); background: var(--surface); color: var(--muted); padding: 0.4rem 1rem; border-radius: 999px; cursor: pointer; }
@@ -386,7 +400,7 @@ footer { font-size: var(--step--1); color: var(--muted); border-top: 1px solid v
   <figure>
     <h3>Speed</h3>
     <div class="speed" id="speed"></div>
-    <figcaption>Throughput as a share of PreLN on B200, at the official Qwen3 1.7B and 14B shapes. Each line spans the lowest and highest value over both sizes: training steps at 2K and 4K tokens, prefill and decoding after 2K-token prompts at batch 1, 16 and 64.</figcaption>
+    <figcaption>Throughput as a share of PreLN on B200 at the official Qwen3 1.7B and 14B shapes. Large number: the median over the measured settings, small print: lowest to highest. Settings are training steps at 2K and 4K tokens, and prefill and decoding after 2K-token prompts at batch 1, 16 and 64, each at both sizes.</figcaption>
   </figure>
 </section>
 
@@ -657,26 +671,21 @@ document.querySelectorAll("[data-scale]").forEach(function (b) {
 
 /* ---------- Speed summary ---------- */
 function buildSpeed() {
-  var box = document.getElementById("speed"), lo = 50, hi = 100;
-  function pos(v) { return ((v - lo) / (hi - lo) * 100).toFixed(2) + "%"; }
   var arms = ["adm", "attnres_block", "mhc", "attnres_full"];
-  var html = '<div class="saxis"><span></span><span class="ax">' + [50, 60, 70, 80, 90, 100].map(function (v) {
-    return '<span style="left:' + pos(v) + '">' + v + "%</span>";
-  }).join("") + "</span><span></span></div>";
-  [["train", "Training"], ["prefill", "Prefill"], ["decode", "Decoding"]].forEach(function (w) {
-    html += '<div class="wl"><span class="label">' + w[1] + "</span>";
-    arms.forEach(function (a) {
-      var vals = D.speed[w[0]][a], mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
-      var grid = [60, 70, 80, 90].map(function (v) { return '<span class="gl" style="left:' + pos(v) + '"></span>'; }).join("");
-      html += '<div class="srow' + (a === "adm" ? " ours" : "") + '" title="' + NAMES[a] + ": " + vals.join("%, ") + '%"><span class="nm">' + NAMES[a] + '</span><span class="strack">' + grid +
-        '<span class="ref" style="left:' + pos(100) + '"></span>' +
-        '<span class="seg-bar" style="left:' + pos(mn) + ";width:calc(" + pos(mx) + " - " + pos(mn) + ");background:" + COLOR[a] + '"></span>' +
-        '<span class="end" style="left:' + pos(mn) + ";background:" + COLOR[a] + '"></span><span class="end" style="left:' + pos(mx) + ";background:" + COLOR[a] + '"></span>' +
-        '</span><span class="val">' + Math.round(mn) + "–" + Math.round(mx) + "%</span></div>";
+  var work = [["train", "Training"], ["prefill", "Prefill"], ["decode", "Decoding"]];
+  function median(a) { var s = a.slice().sort(function (x, y) { return x - y; }), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
+  var html = '<table class="speedtab"><thead><tr><th scope="col"><span class="label">% of PreLN</span></th>' +
+    work.map(function (w) { return '<th scope="col">' + w[1] + "</th>"; }).join("") + "</tr></thead><tbody>";
+  arms.forEach(function (a) {
+    html += "<tr" + (a === "adm" ? ' class="ours"' : "") + '><th scope="row">' + NAMES[a] + "</th>";
+    work.forEach(function (w) {
+      var vals = D.speed[w[0]][a], md = median(vals);
+      html += '<td><div class="v">' + Math.round(md) + '<span>%</span></div><div class="bar"><span style="width:' + Math.min(100, md) + "%;background:" + COLOR[a] + '"></span></div>' +
+        '<div class="rg">' + Math.round(Math.min.apply(null, vals)) + "–" + Math.round(Math.max.apply(null, vals)) + "%</div></td>";
     });
-    html += "</div>";
+    html += "</tr>";
   });
-  box.innerHTML = html;
+  document.getElementById("speed").innerHTML = html + "</tbody></table>";
 }
 
 /* ---------- Edge stepper ---------- */
