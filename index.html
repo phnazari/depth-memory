@@ -80,6 +80,11 @@ window.MathJax = {
 }
 
 body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: var(--step-0); line-height: 1.6; }
+
+/* Grid columns shrink to the screen; anything wider (equations, the edge strip) scrolls inside its own box. */
+.page, header, .stack, .stack-lg, .panel, figure { grid-template-columns: minmax(0, 1fr); }
+.page > *, header > *, .stack > *, .stack-lg > *, .panel > *, figure > * { min-width: 0; }
+mjx-container[display="true"] { max-width: 100%; }
 .page { max-width: 60rem; margin: 0 auto; padding-inline: 1.25rem; padding-block: 3rem 4rem; display: grid; gap: 4rem; }
 .prose { max-width: 41rem; }
 .prose p, .prose ul, .prose ol { margin: 0; }
@@ -242,7 +247,11 @@ tr.total td { font-weight: 600; border-top: 1px solid var(--rule); }
 footer { font-size: var(--step--1); color: var(--muted); border-top: 1px solid var(--rule); padding-top: 1.25rem; }
 
 @media (max-width: 34rem) {
-  .srow, .saxis { grid-template-columns: 6.2rem minmax(0, 1fr) 5.4rem; gap: 0.5rem; }
+  .srow { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "nm val" "tr tr"; gap: 0.2rem 0.5rem; }
+  .srow .nm { grid-area: nm; } .srow .val { grid-area: val; } .srow .strack { grid-area: tr; }
+  .saxis { grid-template-columns: minmax(0, 1fr); }
+  .saxis > span:first-child, .saxis > span:last-child { display: none; }
+  .cite pre { padding-top: 2.8rem; }
   .brand img { width: 3.4rem; height: 3.4rem; }
   .edge { width: 0.8rem; height: 1.2rem; }
 }
@@ -324,7 +333,7 @@ footer { font-size: var(--step--1); color: var(--muted); border-top: 1px solid v
     <p class="prose">An implicit memory stored in an expanded residual stream: several copies of the stream, mixed between layers by learned matrices.</p>
     <div class="eqgrid">
       <span class="k">Streams</span><span>\((\mathbf X_l)\)</span>
-      <span class="k">Write</span><span>\(\mathbf X_l=\mathbf X_{l-1}\mathbf H_l^{\mathrm{res}}(\mathbf X_{l-1})+\mathbf v_l\mathbf H_l^{\mathrm{post}}(\mathbf X_{l-1})^\top\)</span>
+      <span class="k">Write</span><span>\(\begin{aligned}\mathbf X_l=\ &\mathbf X_{l-1}\mathbf H_l^{\mathrm{res}}(\mathbf X_{l-1})\\ &+\mathbf v_l\mathbf H_l^{\mathrm{post}}(\mathbf X_{l-1})^\top\end{aligned}\)</span>
       <span class="k">Read</span><span>\(\mathbf X_l\mathbf H_{l+1}^{\mathrm{pre}}(\mathbf X_l)\)</span>
     </div>
   </div>
@@ -332,7 +341,7 @@ footer { font-size: var(--step--1); color: var(--muted); border-top: 1px solid v
     <p class="prose">Three streams: the residual stream, a matrix memory of fixed size, and an inverse covariance. The memory holds the exact solution of a regression problem over depth, updated with recursive least squares.</p>
     <div class="eqgrid">
       <span class="k">Streams</span><span>\((\mathbf x_l,\mathbf M_l,\mathbf P_l)\)</span>
-      <span class="k">Write</span><span>\((\mathbf x_l,\mathbf M_l)=(\mathbf x_{l-1}+\mathbf v_l,\ \mathbf M_{l-1}+\mathbf u_l\boldsymbol\kappa_l^\top)\)</span>
+      <span class="k">Write</span><span>\(\begin{aligned}\mathbf x_l&=\mathbf x_{l-1}+\mathbf v_l\\ \mathbf M_l&=\mathbf M_{l-1}+\mathbf u_l\boldsymbol\kappa_l^\top\end{aligned}\)</span>
       <span class="k">Read</span><span>\(\mathbf x_l+\mathbf M_l\mathbf q_l\)</span>
     </div>
   </div>
@@ -344,8 +353,8 @@ footer { font-size: var(--step--1); color: var(--muted); border-top: 1px solid v
     <p>A plain outer-product memory, \(\mathbf M_l=\mathbf M_{l-1}+\mathbf v_l\mathbf k_l^\top\), is linear attention over depth: it replaces the growing cache of AttnRes with a fixed-size summary. That update only approximates the solution of a regression problem over the layers seen so far, which we call depth regression:</p>
     <div class="display">\[\mathbf M_l^\ast=\arg\min_{\mathbf M}\ \sum_{i=0}^{l}\big\|\mathbf v_i-\mathbf M\mathbf k_i\big\|_2^2 .\]</div>
     <p>Along the sequence, efficient training calls for parallel, approximate solvers. Across depth the layers already run one after another, so LDM keeps the exact solution with recursive least squares. With gain \(\boldsymbol\kappa_l\), prediction error \(\mathbf u_l\) and inverse key covariance \(\mathbf P_l\), each write is</p>
-    <div class="display">\[\boldsymbol\kappa_l=\frac{\mathbf P_{l-1}\bar{\mathbf k}_l}{\lambda_l+\bar{\mathbf k}_l^\top\mathbf P_{l-1}\bar{\mathbf k}_l},\qquad \mathbf u_l=\bar{\mathbf v}_l-\mathbf M_{l-1}\bar{\mathbf k}_l,\]</div>
-    <div class="display">\[\mathbf M_l=\mathbf M_{l-1}+\mathbf u_l\boldsymbol\kappa_l^\top,\qquad \mathbf P_l=\big(\mathbf P_{l-1}-\boldsymbol\kappa_l\bar{\mathbf k}_l^\top\mathbf P_{l-1}\big)/\lambda_l ,\]</div>
+    <div class="display">\[\begin{aligned}\boldsymbol\kappa_l&=\frac{\mathbf P_{l-1}\bar{\mathbf k}_l}{\lambda_l+\bar{\mathbf k}_l^\top\mathbf P_{l-1}\bar{\mathbf k}_l},\\ \mathbf u_l&=\bar{\mathbf v}_l-\mathbf M_{l-1}\bar{\mathbf k}_l,\end{aligned}\]</div>
+    <div class="display">\[\begin{aligned}\mathbf M_l&=\mathbf M_{l-1}+\mathbf u_l\boldsymbol\kappa_l^\top,\\ \mathbf P_l&=\big(\mathbf P_{l-1}-\boldsymbol\kappa_l\bar{\mathbf k}_l^\top\mathbf P_{l-1}\big)/\lambda_l ,\end{aligned}\]</div>
     <p>with learned forgetting factors \(\lambda_l\) and importance weights inside \(\bar{\mathbf k}_l,\bar{\mathbf v}_l\). The memory is split into 16 groups, each with its own covariance. A hardware-aware implementation in CuTe DSL for Hopper and Blackwell GPUs updates the state in place during the forward pass and reconstructs earlier states in the backward pass, which keeps activation memory and memory traffic low.</p>
   </div>
 </section>
@@ -499,7 +508,7 @@ function drawSchematic() {
   var lanes = { preln: ["x"], attnres: ["K, V"], mhc: ["X", "", "", ""], ldm: ["x", "M", "P"] }[m];
   var laneGap = m === "mhc" ? 16 : 30, top = m === "attnres" ? 74 : 26, left = 52, right = 16;
   var laneY = lanes.map(function (_, i) { return top + i * laneGap; });
-  var layerY = laneY[laneY.length - 1] + 40, H = layerY + 50, N = 6;
+  var narrow = W < 560, layerY = laneY[laneY.length - 1] + 40, H = layerY + (narrow ? 64 : 50), N = 6;
   var svg = el("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H }, box);
   var xs = []; for (var i = 0; i < N; i++) xs.push(left + 20 + i * (W - left - right - 40) / (N - 1));
   var col = METHOD_COLOR[m];
@@ -532,7 +541,7 @@ function drawSchematic() {
   });
   var note = { preln: "state: one vector per token", attnres: "state grows by one entry per layer", mhc: "state: several copies of the stream", ldm: "state: fixed size, whatever the depth" }[m];
   var nt = el("text", { x: W - right, y: H - 6, "text-anchor": "end" }, svg); nt.textContent = note;
-  var dt = el("text", { x: left, y: H - 6 }, svg); dt.textContent = "depth →";
+  var dt = el("text", { x: left, y: narrow ? H - 22 : H - 6 }, svg); dt.textContent = "depth →";
 }
 document.querySelectorAll(".tabs button").forEach(function (b) {
   b.addEventListener("click", function () { selectMethod(b.getAttribute("data-m")); });
@@ -776,7 +785,7 @@ document.getElementById("spanInput").addEventListener("input", function () {
 function traffic(E) { var K = 8, p = 16 * 8 * 9 / (2 * 2048); return K + K / E + (E - 1) / 2 + 3 * p + 1; }
 function drawTraffic() {
   var box = document.getElementById("trafficChart"); clear(box);
-  var W = Math.max(300, Math.min(box.clientWidth, 640)), H = 200, M = { l: 40, r: 10, t: 14, b: 34 };
+  var W = Math.max(300, Math.min(box.clientWidth, 640)), H = 214, M = { l: 40, r: 10, t: 14, b: 46 };
   var svg = el("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, role: "img", "aria-label": "State traffic per edge against window size", style: "max-width:" + W + "px" }, box);
   var ylo = 12, yhi = 18.5, sy = scaleLin(ylo, yhi, H - M.b, M.t), band = (W - M.l - M.r) / 8, best = 4;
   [12, 14, 16, 18].forEach(function (v) {
@@ -790,7 +799,7 @@ function drawTraffic() {
     var lt = el("text", { x: x, y: H - M.b + 16, "text-anchor": "middle" }, svg); lt.textContent = E;
     var vt = el("text", { x: x, y: sy(v) - 5, "text-anchor": "middle" }, svg); vt.textContent = v.toFixed(1);
     if (sel) vt.setAttribute("style", "fill:var(--fg);font-weight:500");
-    if (E === best) { var bt = el("text", { x: x, y: M.t - 2, "text-anchor": "middle" }, svg); bt.textContent = "minimum"; }
+    if (E === best) { var bt = el("text", { x: x, y: H - M.b + 30, "text-anchor": "middle" }, svg); bt.textContent = "min"; }
   }
   el("line", { x1: M.l, x2: W - M.r, y1: sy(ylo), y2: sy(ylo), style: "stroke:var(--muted)" }, svg);
   var xl = el("text", { x: W - M.r, y: H - 2, "text-anchor": "end" }, svg); xl.textContent = "window size E";
